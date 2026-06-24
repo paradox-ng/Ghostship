@@ -10,7 +10,10 @@ extern "C" {
 }
 
 void alloc_pool() {
-    static u64 pool[1024 * 1024 * 4];
+    // Console fit: the desktop pool is 32 MB (u64[4M]), which alone overruns the
+    // GameCube's 24 MB (and Wii MEM1). Use 8 MB so the whole static image fits in
+    // MEM1 with room for the heap/stack. Tunable; large levels may need more.
+    static u64 pool[1024 * 1024];
     main_pool_init(pool, pool + sizeof(pool) / sizeof(pool[0]));
     gEffectsMemoryPool = mem_pool_init(0x4000, MEMORY_POOL_LEFT);
 }
