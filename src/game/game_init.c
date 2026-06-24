@@ -691,21 +691,30 @@ void setup_game_memory(void) {
 
 struct LevelCommand *addr;
 
+extern void bootlog(const char* msg);
+extern void bootflush(void);
 void thread5_game_loop(void) {
+    bootlog("t5 enter");
     setup_game_memory();
+    bootlog("t5 setup_game_memory");
 #if ENABLE_RUMBLE
     // init_rumble_pak_scheduler_queue();
 #endif
     init_controllers();
+    bootlog("t5 init_controllers");
     save_file_load_all();
+    bootlog("t5 save_file_load_all");
 
     // Point address to the entry point into the level script data.
     CALL_CANCELLABLE_EVENT(LevelScriptEntry, &addr) {
         addr = segmented_to_virtual(level_script_entry);
     }
+    bootlog("t5 level_script_entry");
 
     play_music(SEQ_PLAYER_SFX, SEQUENCE_ARGS(0, SEQ_SOUND_PLAYER), 0);
+    bootlog("t5 play_music");
     set_sound_mode(save_file_get_sound_mode());
+    bootlog("t5 set_sound_mode");
 }
 
 void update_vblank_reset(void) {
@@ -721,7 +730,14 @@ void update_vblank_reset(void) {
 #endif
 }
 
+#include <stdio.h>
+extern void bootlog(const char* msg);
+extern void bootflush(void);
 void thread5_iteration(void){
+    static int tic = 0;
+    int trace = 0; // BISECT: fine trace off so the frame heartbeat keeps the flush budget
+    char tb[40];
+#define TI(tag) do { if (trace) { snprintf(tb, sizeof(tb), "ti%d %s", tic, tag); bootlog(tb); bootflush(); } } while (0)
     if (GfxDebuggerIsDebugging()) {
         exec_display_list(&gGfxPool->spTask);
         return;
@@ -763,7 +779,10 @@ void thread5_iteration(void){
     }
 
     CALL_EVENT(GameLoopTick);
+    TI("pre-display_and_vsync");
     display_and_vsync();
+    TI("post-display_and_vsync");
+    tic++;
 
     // when debug info is enabled, print the "BUF %d" information.
     if (gShowDebugText) {

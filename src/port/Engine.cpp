@@ -526,7 +526,9 @@ void GameEngine::RunExtract(int argc, char* argv[]) {
     auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(context->GetWindow());
     auto gui = wnd->GetGui();
     bool menuWasVisible = false;
-    if (gui->GetMenu()->IsVisible()) {
+    // The console GUI is stubbed, so gui / its menu can be null. Dereferencing them
+    // here read near-null addresses (DSI crash on real GameCube/Wii hardware).
+    if (gui && gui->GetMenu() && gui->GetMenu()->IsVisible()) {
         menuWasVisible = true;
         gui->GetMenu()->Hide();
     }
@@ -1293,37 +1295,32 @@ void GameEngine::AudioInit() {
                 }
             }
         }
-        bootflush();
     }
 
     Instance->sequenceTable.resize(512);
     Instance->audioSequenceTable.resize(512);
     Instance->banksTable.resize(512);
 
-    for (auto& bank : *banksFiles) {
-        auto path = "__OTR__" + bank;
-        const auto ctl = static_cast<CtlEntry*>(ResourceGetDataByName(path.c_str()));
-        this->bankMapTable[bank] = ctl->bankId;
-    }
+    // Decompressing all banks/sequences from the o2r is the slowest part of init.
+    // Skip it when audio is disabled (bring-up / gdb runs) so the game reaches the
+    // main loop quickly under Dolphin's interpreter-mode gdb stub.
+    extern int g_audio_enabled;
+    if (g_audio_enabled) {
+        for (auto& bank : *banksFiles) {
+            auto path = "__OTR__" + bank;
+            const auto ctl = static_cast<CtlEntry*>(ResourceGetDataByName(path.c_str()));
+            this->bankMapTable[bank] = ctl->bankId;
+        }
 
-    for (auto& sequence : *sequences_files) {
-        if (sequence.find(".") != std::string::npos) {
-            continue;
-        }
-        auto path = "__OTR__" + sequence;
-        auto seq = static_cast<AudioSequenceData*>(ResourceGetDataByName(path.c_str()));
-        {
-            static int sc = 0;
-            if (sc++ < 6) {
-                char db[96];
-                snprintf(db, sizeof(db), "DBG seq '%s' ptr=%d id=%d", sequence.c_str(), seq != nullptr,
-                         seq != nullptr ? (int)seq->id : -1);
-                bootlog(db);
+        for (auto& sequence : *sequences_files) {
+            if (sequence.find(".") != std::string::npos) {
+                continue;
             }
+            auto path = "__OTR__" + sequence;
+            auto seq = static_cast<AudioSequenceData*>(ResourceGetDataByName(path.c_str()));
+            Instance->sequenceTable[seq->id] = path;
         }
-        Instance->sequenceTable[seq->id] = path;
     }
-    bootflush();
 
     // Console: audio is synthesized synchronously in StartAudioFrame; no worker
     // thread (it deadlocks on the cooperative scheduler).

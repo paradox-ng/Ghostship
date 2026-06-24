@@ -208,16 +208,33 @@ uint64_t ReadSafeCrc() {
     return crc;
 }
 
+// BISECT globals (gdb-readable; no SD/snprintf): the first failed sub-resource CRC.
+volatile uint64_t g_geo_dbg_crc = 0;
+volatile const char* g_geo_dbg_name = nullptr;
+volatile int g_geo_dbg_nullcount = 0;
+
 void process_cmd_branch_and_link() {
     const auto crc = ReadSafeCrc();
 
     const auto data = static_cast<char*>(ResourceGetDataByCrc(crc));
     const auto size = ResourceGetSizeByCrc(crc);
 
+    if (data == nullptr) {
+        // A missing sub-resource must NOT construct a BinaryReader(null): MemoryStream
+        // throws and the devkitPPC unwinder hangs. Skip the branch (graceful).
+        if (g_geo_dbg_nullcount == 0) {
+            g_geo_dbg_crc = crc;
+            g_geo_dbg_name = ResourceGetNameByCrc(crc);
+        }
+        g_geo_dbg_nullcount++;
+        return;
+    }
+
     gGeoLayoutStack[gGeoLayoutStackIndex++] = reinterpret_cast<uintptr_t>(GeoLayoutParser::mReader);
     gGeoLayoutStack[gGeoLayoutStackIndex++] = (gCurGraphNodeIndex << 16) + gGeoLayoutReturnIndex;
     gGeoLayoutReturnIndex = gGeoLayoutStackIndex;
     GeoLayoutParser::mReader = new Ship::BinaryReader(data, size);
+    GeoLayoutParser::mReader->SetEndianness(Ship::Endianness::Little);
 }
 
 void process_cmd_end() {
@@ -245,6 +262,7 @@ void process_cmd_branch() {
     }
 
     GeoLayoutParser::mReader = new Ship::BinaryReader(data, size);
+    GeoLayoutParser::mReader->SetEndianness(Ship::Endianness::Little);
 }
 
 void process_cmd_return() {
@@ -664,6 +682,7 @@ void GeoLayoutParser::execute(const char* path) {
     const auto size = ResourceGetSizeByName(path);
 
     mReader = new Ship::BinaryReader(data, size);
+    GeoLayoutParser::mReader->SetEndianness(Ship::Endianness::Little);
 
     while (mReader != nullptr) {
         const auto cmdId = mReader->ReadUByte();
