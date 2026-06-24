@@ -1,0 +1,83 @@
+#---------------------------------------------------------------------------------
+# Ghostship -> GameCube/Wii via libultragx (devkitPPC). Compiles the game decomp +
+# port layer together with libultragx (sibling repo) into one .dol; the game provides
+# main(). This is the cross-compile (M1) scaffold - expect a long error tail; the ui
+# (ImGui) layer is excluded and stubbed.
+#   make -f Makefile.gx PLATFORM=wii
+#---------------------------------------------------------------------------------
+.SUFFIXES:
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Set DEVKITPRO/DEVKITPPC (run inside the devkitppc docker image)")
+endif
+
+PLATFORM	?=	wii
+ifeq ($(PLATFORM),wii)
+include $(DEVKITPPC)/wii_rules
+else
+include $(DEVKITPPC)/gamecube_rules
+endif
+
+GX		:=	../libultragx
+TARGET		:=	ghostship-$(PLATFORM)
+BUILD		:=	build_gx_$(PLATFORM)
+
+# libultragx sources (everything except its standalone apps) + the game.
+GX_SRC		:=	$(GX)/source/platform $(GX)/source/ship $(GX)/source/config $(GX)/source/bridge \
+				$(GX)/source/log $(GX)/source/utils/binarytools $(GX)/source/window/gui $(GX)/source/debug \
+				$(GX)/source/gfx $(GX)/source/ship/resource $(GX)/source/ship/resource/archive \
+				$(GX)/source/ship/utils $(GX)/source/ship/controller $(GX)/source/ship/events \
+				$(GX)/source/fast $(GX)/source/fast/resource $(GX)/source/fast/debug \
+				$(GX)/extern/prism/src/prism $(GX)/extern/prism/src/prism/utils
+# Game decomp + port (ui excluded - ImGui). lib/src is curated below (N64-hw files out).
+GAME_SRC	:=	src/audio src/buffers src/engine src/game src/goddard src/menu \
+				src/port src/port/game src/port/interpolation src/port/events \
+				lib/src
+
+SOURCES		:=	$(GX_SRC) $(GAME_SRC)
+INCLUDES	:=	. include src \
+				$(GX)/source $(GX)/include $(GX)/include/libultraship \
+				$(GX)/extern/prism/src $(GX)/extern/json/single_include
+
+CVAR_DEFS	=	-DCVAR_INTERNAL_RESOLUTION='"gInternalResolution"' -DCVAR_MSAA_VALUE='"gMSAAValue"'
+GAME_DEFS	=	-DGBI_FLOATS -DF3DEX_GBI_2 -DTARGET_PORT -DIS_BIGENDIAN
+CFLAGS		=	-g -O2 -Wall -Wno-incompatible-pointer-types -Wno-int-conversion \
+				-Wno-builtin-macro-redefined $(CVAR_DEFS) $(GAME_DEFS) $(MACHDEP) $(INCLUDE)
+CXXFLAGS	=	$(CFLAGS) -std=gnu++20
+LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
+LIBS		:=	$(PLATFORM_LIBS) -lfat -lz -logc -lm
+LIBDIRS		:=	$(PORTLIBS_PATH)/ppc
+
+#---------------------------------------------------------------------------------
+ifneq ($(BUILD),$(notdir $(CURDIR)))
+export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
+export DEPSDIR	:=	$(CURDIR)/$(BUILD)
+
+# N64-hardware lib/src files the PC/console port does not build (threading/RCP regs).
+LIB_EXCLUDE	:=	contramread.c contramwrite.c D_802F4380.c EU_D_802f4330.c func_802F4A20.c \
+				func_802F71F0.c osPiStartDma.c osEPiStartDma.c
+
+ALL_C		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CFILES		:=	$(filter-out $(LIB_EXCLUDE),$(ALL_C))
+CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
+SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
+
+export LD	:=	$(CXX)
+export OFILES	:=	$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(sFILES:.s=.o) $(SFILES:.S=.o)
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-iquote $(CURDIR)/$(dir) -I$(CURDIR)/$(dir)) \
+					$(foreach dir,$(LIBDIRS),-I$(dir)/include) -I$(CURDIR)/$(BUILD) -I$(LIBOGC_INC)
+export LIBPATHS	:=	-L$(LIBOGC_LIB) $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
+
+.PHONY: $(BUILD) clean
+$(BUILD):
+	@[ -d $@ ] || mkdir -p $@
+	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile.gx
+clean:
+	@rm -fr build_gx_wii build_gx_gamecube ghostship-*.elf ghostship-*.dol
+else
+DEPENDS	:=	$(OFILES:.o=.d)
+$(OUTPUT).dol: $(OUTPUT).elf
+$(OUTPUT).elf: $(OFILES)
+-include $(DEPENDS)
+endif
