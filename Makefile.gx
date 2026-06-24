@@ -6,6 +6,10 @@
 #   make -f Makefile.gx PLATFORM=wii
 #---------------------------------------------------------------------------------
 .SUFFIXES:
+# Capture this makefile's directory before the devkitPPC rules are included (after
+# that, $(lastword $(MAKEFILE_LIST)) points at wii_rules, not here). Used to locate
+# cmake/gx-cvars.mk in both the top and recursive (build-dir CWD) make passes.
+GXMK_DIR	:=	$(dir $(lastword $(MAKEFILE_LIST)))
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "Set DEVKITPRO/DEVKITPPC (run inside the devkitppc docker image)")
 endif
@@ -25,21 +29,34 @@ BUILD		:=	build_gx_$(PLATFORM)
 GX_SRC		:=	$(GX)/source/platform $(GX)/source/ship $(GX)/source/config $(GX)/source/bridge \
 				$(GX)/source/log $(GX)/source/utils/binarytools $(GX)/source/window/gui $(GX)/source/debug \
 				$(GX)/source/gfx $(GX)/source/ship/resource $(GX)/source/ship/resource/archive \
+				$(GX)/source/ship/resource/factory $(GX)/source/ship/resource/type \
 				$(GX)/source/ship/utils $(GX)/source/ship/controller $(GX)/source/ship/events \
 				$(GX)/source/fast $(GX)/source/fast/resource $(GX)/source/fast/debug \
 				$(GX)/extern/prism/src/prism $(GX)/extern/prism/src/prism/utils
-# Game decomp + port (ui excluded - ImGui). lib/src is curated below (N64-hw files out).
+# Game decomp + port (ui excluded - ImGui). Asset .c dirs (actors/levels/data/
+# textures/bin/sound/text) are loaded from the o2r at runtime, not compiled in.
 GAME_SRC	:=	src/audio src/buffers src/engine src/game src/goddard src/menu \
-				src/port src/port/game src/port/interpolation src/port/events \
-				lib/src
+				src/port src/port/game src/port/interpolation src/port/events
+# lib/src is the N64 libultra; the port keeps only the endian-neutral math/AI files
+# (matches the desktop CMake), the rest is N64 RCP/threading we do not build.
+LIB_DIR		:=	lib/src
+LIB_KEEP	:=	alBnkfNew.c guLookAtRef.c guMtxF2L.c guNormalize.c guOrthoF.c \
+				guPerspectiveF.c guRotateF.c guScaleF.c guLookAtF.c guTranslateF.c \
+				osAiSetFrequency.c
 
 SOURCES		:=	$(GX_SRC) $(GAME_SRC)
 INCLUDES	:=	gx_stubs . include src \
 				$(GX)/source $(GX)/include $(GX)/include/libultraship \
 				$(GX)/extern/prism/src $(GX)/extern/json/single_include
 
-CVAR_DEFS	=	-DCVAR_INTERNAL_RESOLUTION='"gInternalResolution"' -DCVAR_MSAA_VALUE='"gMSAAValue"'
-GAME_DEFS	=	-DGBI_FLOATS -DF3DEX_GBI_2 -DTARGET_PORT -DIS_BIGENDIAN
+# GXMK_DIR (this makefile's dir) is captured at the top, before the devkitPPC rules.
+include $(GXMK_DIR)cmake/gx-cvars.mk
+# Game compile defines, matching the desktop CMake add_compile_definitions (minus
+# the OpenGL/desktop-only ones). SM64 is F3D (old microcode), not F3DEX2; F3D_OLD
+# also selects the big-endian 32-bit Gfx layout the GameCube needs. VERSION_US gates
+# the US menu/audio/goddard code paths.
+GAME_DEFS	=	-DGBI_FLOATS -DF3D_GBI -DF3D_OLD -DVERSION_US=1 -DENABLE_RUMBLE=1 \
+				-D_LANGUAGE_C -D_USE_MATH_DEFINES -DAVOID_UB=1 -DTARGET_PORT -DIS_BIGENDIAN
 CFLAGS		=	-g -O2 -Wall -Wno-incompatible-pointer-types -Wno-int-conversion \
 				-Wno-builtin-macro-redefined $(CVAR_DEFS) $(GAME_DEFS) $(MACHDEP) $(INCLUDE)
 CXXFLAGS	=	$(CFLAGS) -std=gnu++20
@@ -50,16 +67,20 @@ LIBDIRS		:=	$(PORTLIBS_PATH)/ppc
 #---------------------------------------------------------------------------------
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
-export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
+export VPATH	:=	$(foreach dir,$(SOURCES) $(LIB_DIR),$(CURDIR)/$(dir))
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
-# N64-hardware lib/src files the PC/console port does not build (threading/RCP regs).
-LIB_EXCLUDE	:=	contramread.c contramwrite.c D_802F4380.c EU_D_802f4330.c func_802F4A20.c \
-				func_802F71F0.c osPiStartDma.c osEPiStartDma.c
+# N64 entry point (the port drives its own loop) + the audio copt .inc.c includes.
+C_EXCLUDE	:=	main.c
 
+# Game/port C: all wildcarded .c minus the N64 main and any *.inc.c, plus the
+# curated lib/src math files (LIB_KEEP) resolved via VPATH.
 ALL_C		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-CFILES		:=	$(filter-out $(LIB_EXCLUDE),$(ALL_C))
-CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+CFILES		:=	$(filter-out $(C_EXCLUDE) %.inc.c,$(ALL_C)) $(LIB_KEEP)
+# Host-only port files (need Torch/Companion or desktop-only deps).
+CPP_EXCLUDE	:=	GameExtractor.cpp
+ALL_CPP		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+CPPFILES	:=	$(filter-out $(CPP_EXCLUDE),$(ALL_CPP))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
 
