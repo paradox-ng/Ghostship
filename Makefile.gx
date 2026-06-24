@@ -33,10 +33,14 @@ GX_SRC		:=	$(GX)/source/platform $(GX)/source/ship $(GX)/source/config $(GX)/sou
 				$(GX)/source/ship/utils $(GX)/source/ship/controller $(GX)/source/ship/events \
 				$(GX)/source/fast $(GX)/source/fast/resource $(GX)/source/fast/debug \
 				$(GX)/extern/prism/src/prism $(GX)/extern/prism/src/prism/utils
-# Game decomp + port (ui excluded - ImGui). Asset .c dirs (actors/levels/data/
-# textures/bin/sound/text) are loaded from the o2r at runtime, not compiled in.
-GAME_SRC	:=	src/audio src/buffers src/engine src/game src/goddard src/menu \
-				src/port src/port/game src/port/interpolation src/port/events
+# Game decomp + port (ui excluded - ImGui). Large asset .c (actors/textures/bin/
+# sound) are loaded from the o2r at runtime; the compiled-in data that game code
+# references by symbol (behaviors, goddard dynlists, level scripts) stays in.
+GAME_SRC	:=	src/audio src/buffers src/engine src/game src/goddard src/goddard/dynlists \
+				src/menu src/port src/port/game src/port/interpolation src/port/events \
+				src/port/importer src/port/importer/types \
+				src/port/mods src/port/mods/utils src/port/mods/mirror \
+				data levels
 # lib/src is the N64 libultra; the port keeps only the endian-neutral math/AI files
 # (matches the desktop CMake), the rest is N64 RCP/threading we do not build.
 LIB_DIR		:=	lib/src

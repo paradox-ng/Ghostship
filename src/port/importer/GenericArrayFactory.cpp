@@ -2,6 +2,8 @@
 #include "types/GenericArray.h"
 #include "spdlog/spdlog.h"
 
+#include <algorithm> // std::copy_n
+
 namespace SF64 {
 std::shared_ptr<Ship::IResource>
 ResourceFactoryBinaryGenericArrayV0::ReadResource(std::shared_ptr<Ship::File> file,
