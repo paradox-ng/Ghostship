@@ -1149,12 +1149,22 @@ void GameEngine::Destroy() {
     pool.clear();
 }
 
+extern "C" void bootlog(const char* msg);
 void GameEngine::StartFrame() const {
+    static int sfc = 0;
+    bool t = (sfc++ < 4);
     using Ship::KbScancode;
+    if (t) bootlog("   sf1 GetLastScancode");
     const int32_t dwScancode = this->context->GetWindow()->GetLastScancode();
     this->context->GetWindow()->SetLastScancode(-1);
 
+    if (t) bootlog("   sf2 CALL_EVENT KeyboardInput");
     CALL_EVENT(KeyboardInput, dwScancode);
+    if (t) {
+        char b[40];
+        snprintf(b, sizeof(b), "   sf3 switch scancode=%d", (int)dwScancode);
+        bootlog(b);
+    }
 
     switch (dwScancode) {
         case KbScancode::LUS_KB_TAB: {
@@ -1166,6 +1176,7 @@ void GameEngine::StartFrame() const {
         default:
             break;
     }
+    if (t) bootlog("   sf4 StartFrame return");
 }
 
 uint32_t GameEngine::GetInterpolationFPS() {
@@ -1219,21 +1230,28 @@ void GameEngine::HandleAudioThread() {
 }
 
 void GameEngine::StartAudioFrame() {
-    {
-        std::unique_lock<std::mutex> Lock(audio.mutex);
-        audio.processing = true;
+    // Console: synchronous audio. The desktop worker-thread + condition-variable
+    // handshake (HandleAudioThread / EndAudioFrame's cv.wait) deadlocks on libogc's
+    // cooperative scheduler when the audio thread is not scheduled, so generate this
+    // frame's samples inline here and make EndAudioFrame a no-op.
+    int samples_left = AudioPlayerBuffered();
+    u32 num_audio_samples = samples_left < AudioPlayerGetDesiredBuffered() ? SAMPLES_HIGH : SAMPLES_LOW;
+
+    s16 audio_buffer[SAMPLES_PER_FRAME];
+    for (int i = 0; i < NUM_AUDIO_CHANNELS; i++) {
+        create_next_audio_buffer(audio_buffer + i * (num_audio_samples * 2), num_audio_samples);
     }
 
-    audio.cv_to_thread.notify_one();
+    float master_vol = CVarGetInteger("gSettings.Volume.Master", 100) / 100.0f;
+    for (u32 i = 0; i < SAMPLES_PER_FRAME; i++) {
+        audio_buffer[i] = static_cast<s16>(audio_buffer[i] * master_vol);
+    }
+
+    ModAudio_MixInto(audio_buffer, num_audio_samples * 2);
+    AudioPlayerPlayFrame((u8*)audio_buffer, 2 * num_audio_samples * 4);
 }
 
 void GameEngine::EndAudioFrame() {
-    {
-        std::unique_lock<std::mutex> Lock(audio.mutex);
-        while (audio.processing) {
-            audio.cv_from_thread.wait(Lock);
-        }
-    }
 }
 
 extern "C" void GameEngine_LockAudioThread() {
@@ -1269,10 +1287,9 @@ void GameEngine::AudioInit() {
         Instance->sequenceTable[seq->id] = path;
     }
 
-    if (!audio.running) {
-        audio.running = true;
-        audio.thread = std::thread(HandleAudioThread);
-    }
+    // Console: audio is synthesized synchronously in StartAudioFrame; no worker
+    // thread (it deadlocks on the cooperative scheduler).
+    audio.running = false;
 }
 
 void GameEngine::AudioExit() {
@@ -1282,8 +1299,10 @@ void GameEngine::AudioExit() {
     }
     audio.cv_to_thread.notify_all();
 
-    // Wait until the audio thread quit
-    audio.thread.join();
+    // No worker thread on console; only join if one was started.
+    if (audio.thread.joinable()) {
+        audio.thread.join();
+    }
 }
 
 void GameEngine::LoadDictionary() {
