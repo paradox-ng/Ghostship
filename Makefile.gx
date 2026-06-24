@@ -34,7 +34,7 @@ GAME_SRC	:=	src/audio src/buffers src/engine src/game src/goddard src/menu \
 				lib/src
 
 SOURCES		:=	$(GX_SRC) $(GAME_SRC)
-INCLUDES	:=	. include src \
+INCLUDES	:=	gx_stubs . include src \
 				$(GX)/source $(GX)/include $(GX)/include/libultraship \
 				$(GX)/extern/prism/src $(GX)/extern/json/single_include
 
