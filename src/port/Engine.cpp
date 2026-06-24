@@ -1234,6 +1234,10 @@ void GameEngine::StartAudioFrame() {
     // handshake (HandleAudioThread / EndAudioFrame's cv.wait) deadlocks on libogc's
     // cooperative scheduler when the audio thread is not scheduled, so generate this
     // frame's samples inline here and make EndAudioFrame a no-op.
+    extern int g_audio_enabled;
+    if (!g_audio_enabled) {
+        return; // bring-up: audio synthesis disabled to isolate the render path
+    }
     int samples_left = AudioPlayerBuffered();
     u32 num_audio_samples = samples_left < AudioPlayerGetDesiredBuffered() ? SAMPLES_HIGH : SAMPLES_LOW;
 
@@ -1262,11 +1266,35 @@ extern "C" void GameEngine_UnlockAudioThread() {
     audio.mutex.unlock();
 }
 
+extern "C" void bootflush(void);
 void GameEngine::AudioInit() {
     const auto resourceMgr = Ship::Context::GetInstance()->GetResourceManager();
     resourceMgr->LoadResources("sound");
     const auto banksFiles = resourceMgr->GetArchiveManager()->ListFiles("sound/banks/*");
     const auto sequences_files = resourceMgr->GetArchiveManager()->ListFiles("sound/sequences/*");
+    {
+        char db[96];
+        snprintf(db, sizeof(db), "DBG AudioInit banks=%d seqs=%d", (int)banksFiles->size(),
+                 (int)sequences_files->size());
+        bootlog(db);
+        auto arch = resourceMgr->GetArchiveManager()->GetArchives();
+        if (arch && !arch->empty() && (*arch)[0]) {
+            const auto& names = (*arch)[0]->GetEntryNames();
+            snprintf(db, sizeof(db), "DBG archive entries=%d", (int)names.size());
+            bootlog(db);
+            int shown = 0;
+            for (const auto& n : names) {
+                if (n.find("sound") != std::string::npos || n.find("bank") != std::string::npos) {
+                    snprintf(db, sizeof(db), "DBG entry: %s", n.c_str());
+                    bootlog(db);
+                    if (++shown >= 4) {
+                        break;
+                    }
+                }
+            }
+        }
+        bootflush();
+    }
 
     Instance->sequenceTable.resize(512);
     Instance->audioSequenceTable.resize(512);
@@ -1284,8 +1312,18 @@ void GameEngine::AudioInit() {
         }
         auto path = "__OTR__" + sequence;
         auto seq = static_cast<AudioSequenceData*>(ResourceGetDataByName(path.c_str()));
+        {
+            static int sc = 0;
+            if (sc++ < 6) {
+                char db[96];
+                snprintf(db, sizeof(db), "DBG seq '%s' ptr=%d id=%d", sequence.c_str(), seq != nullptr,
+                         seq != nullptr ? (int)seq->id : -1);
+                bootlog(db);
+            }
+        }
         Instance->sequenceTable[seq->id] = path;
     }
+    bootflush();
 
     // Console: audio is synthesized synchronously in StartAudioFrame; no worker
     // thread (it deadlocks on the cooperative scheduler).

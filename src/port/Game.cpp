@@ -36,6 +36,9 @@ extern "C" void bootflush(void) {
     }
 }
 
+// Bring-up toggle: 0 disables audio synthesis (to isolate the render path).
+int g_audio_enabled = 1;
+
 void alloc_pool() {
     // Console fit: the desktop pool is 32 MB (u64[4M]), which alone overruns the
     // GameCube's 24 MB (and Wii MEM1). Use 8 MB so the whole static image fits in
@@ -72,9 +75,17 @@ int main(int argc, char* argv[]) {
     bootlog("04 sound_init done");
     thread5_game_loop();
     bootlog("05 thread5_game_loop done");
-    bootflush(); // last SD write before the loop; the loop renders cleanly (AVI = truth)
+    bootflush();
+    int frame = 0;
     while (WindowIsRunning()) {
         push_frame();
+        frame++;
+        if (frame % 60 == 0) { // minimal SD logging (every ~1s) to avoid the libfat hang
+            char b[24];
+            snprintf(b, sizeof(b), "frame %d done", frame);
+            bootlog(b);
+            bootflush();
+        }
     }
     GameEngine::Instance->Destroy();
     return 0;

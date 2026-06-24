@@ -13,6 +13,10 @@ extern "C" void ResourceMgr_PatchGfxByName(const char* path, const char* patchNa
     auto res = std::static_pointer_cast<Fast::DisplayList>(
         Ship::Context::GetInstance()->GetResourceManager()->LoadResource(path));
 
+    if (res == nullptr) {
+        return; // console bring-up: the patch target DL is not loaded; skip it
+    }
+
     // Leaving this here for people attempting to find the correct Dlist index to patch
     /*SPDLOG_INFO("Patching DList: {}", path);
     for (int i = 0; i < res->Instructions.size(); i++) {

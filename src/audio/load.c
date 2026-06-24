@@ -395,13 +395,18 @@ out2:
 }
 
 uint8_t* load_sequence_immediate(s32 seqId, s32 arg1) {
-    return GameEngine_LoadSequence(seqId)->data;
+    struct AudioSequenceData *seq = GameEngine_LoadSequence(seqId);
+    return seq != NULL ? seq->data : NULL; // console bring-up: tolerate an unloaded seq
 }
 
 struct CtlEntry* load_banks_immediate(s32 seqId, u8 *outDefaultBank) {
-    u32 bankId;
+    u32 bankId = 0;
     struct AudioSequenceData *seqData = GameEngine_LoadSequence(seqId);
-    struct CtlEntry *output;
+    struct CtlEntry *output = NULL;
+    if (seqData == NULL) { // console bring-up: tolerate an unloaded seq
+        *outDefaultBank = 0;
+        return NULL;
+    }
     for(size_t i = 0; i < seqData->bankCount; i++) {
         output = GameEngine_LoadBank(bankId = seqData->banks[i]);
     }
