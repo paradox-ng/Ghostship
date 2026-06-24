@@ -4,3 +4,7 @@
 [submodule "libultraship"]
 	path = libultraship
 	url = https://github.com/Kenix3/libultraship
+[submodule "libultragx"]
+	path = libultragx
+	url = https://github.com/paradox-ng/libultragx.git
+	branch = develop

@@ -17,7 +17,7 @@ else
 include $(DEVKITPPC)/gamecube_rules
 endif
 
-GX		:=	../libultragx
+GX		:=	libultragx
 TARGET		:=	ghostship-$(PLATFORM)
 BUILD		:=	build_gx_$(PLATFORM)
 
