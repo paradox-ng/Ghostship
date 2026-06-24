@@ -40,7 +40,8 @@ GAME_SRC	:=	src/audio src/buffers src/engine src/game src/goddard src/goddard/dy
 				src/menu src/port src/port/game src/port/interpolation src/port/events \
 				src/port/importer src/port/importer/types \
 				src/port/mods src/port/mods/utils src/port/mods/mirror \
-				data levels
+				src/port/data \
+				data levels gen_levels
 # lib/src is the N64 libultra; the port keeps only the endian-neutral math/AI files
 # (matches the desktop CMake), the rest is N64 RCP/threading we do not build.
 LIB_DIR		:=	lib/src
@@ -65,7 +66,7 @@ CFLAGS		=	-g -O2 -Wall -Wno-incompatible-pointer-types -Wno-int-conversion \
 				-Wno-builtin-macro-redefined $(CVAR_DEFS) $(GAME_DEFS) $(MACHDEP) $(INCLUDE)
 CXXFLAGS	=	$(CFLAGS) -std=gnu++20
 LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
-LIBS		:=	$(PLATFORM_LIBS) -lfat -lz -logc -lm
+LIBS		:=	$(PLATFORM_LIBS) -lfat -lz -lwiiuse -lbte -logc -lm
 LIBDIRS		:=	$(PORTLIBS_PATH)/ppc
 
 #---------------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 #define DR_MP3_IMPLEMENTATION
 #define DR_WAV_IMPLEMENTATION
 #define DR_FLAC_IMPLEMENTATION
+#include <cstring> // memcpy/strcmp
 #include "AudioSampleFactory.h"
 #include <iostream>
 #include <thread>

@@ -1,3 +1,4 @@
+#include <cstring> // memcpy/strcmp
 #include "AudioSequenceFactory.h"
 #include "port/importer/types/AudioSequence.h"
 #include "port/importer/types/AudioSample.h"
