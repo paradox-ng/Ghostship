@@ -62,7 +62,12 @@ include $(GXMK_DIR)cmake/gx-cvars.mk
 # the US menu/audio/goddard code paths.
 GAME_DEFS	=	-DGBI_FLOATS -DF3D_GBI -DF3D_OLD -DVERSION_US=1 -DENABLE_RUMBLE=1 \
 				-D_LANGUAGE_C -D_USE_MATH_DEFINES -DAVOID_UB=1 -DTARGET_PORT -DIS_BIGENDIAN
-CFLAGS		=	-g -O2 -Wall -Wno-incompatible-pointer-types -Wno-int-conversion \
+# -fno-strict-aliasing is REQUIRED: the SM64 decomp type-puns heavily (mtxf_copy casts
+# Mat4* float matrices to u32*, etc.). With -O2's default strict aliasing GCC miscompiles
+# the matrix math -> mtxf_mul returns all-zeros -> the camera/modelview collapses and the
+# 3D world renders black/exploded. The desktop CMake build documents this exact bug
+# (CMakeLists.txt: "the camera is locked in place ... renders the game unplayable").
+CFLAGS		=	-g -O2 -fno-strict-aliasing -Wall -Wno-incompatible-pointer-types -Wno-int-conversion \
 				-Wno-builtin-macro-redefined $(CVAR_DEFS) $(GAME_DEFS) $(MACHDEP) $(INCLUDE)
 CXXFLAGS	=	$(CFLAGS) -std=gnu++20
 LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
