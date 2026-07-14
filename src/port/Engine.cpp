@@ -432,7 +432,12 @@ void GameEngine::FinishInit() {
 
     this->context->InitAudio({ .SampleRate = 32000, .SampleLength = 512, .DesiredBuffered = 1100 });
 
-    gsFast3dWindow->SetTargetFps(60);
+    // SM64 is a 30fps game and its logic is paced by the present, so start at 30
+    // (the GX present caps to this). Without it the intro/title - e.g. the Goddard
+    // head - runs before the per-frame ProcessGfxCommands sets the target and plays
+    // at double speed. ProcessGfxCommands keeps this in sync (GetInterpolationFPS)
+    // and would raise it to 60 if frame interpolation is ever enabled.
+    gsFast3dWindow->SetTargetFps(30);
     gsFast3dWindow->SetMaximumFrameLatency(1);
     gsFast3dWindow->SetRendererUCode(ucode_f3d);
 
