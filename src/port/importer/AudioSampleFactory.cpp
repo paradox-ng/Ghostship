@@ -166,6 +166,15 @@ SM64::AudioSampleFactoryV0::ReadResource(std::shared_ptr<Ship::File> file,
     std::shared_ptr<AudioSample> bank = std::make_shared<AudioSample>(initData);
     auto reader = std::get<std::shared_ptr<Ship::BinaryReader>>(file->Reader);
 
+    // The ADPCM loop state and codebook below are read as raw int16 byte blobs
+    // (reader->Read is a plain memcpy that does NOT honour the reader's byte order,
+    // unlike ReadInt16/ReadUInt32). The archive stores them little-endian, so on a
+    // big-endian target (GameCube/Wii PPC) each s16 must be swapped to host order or
+    // the codebook/predictors are corrupt and the sample decodes to noise. Swap
+    // exactly when the stored byte order differs from the host, matching the reader's
+    // own rule (no-op on a little-endian desktop).
+    const bool byteSwap = reader->GetEndianness() != Ship::Endianness::Native;
+
     bank->loop.start = reader->ReadUInt32();
     bank->loop.end = reader->ReadUInt32();
     bank->loop.count = reader->ReadInt32();
@@ -175,6 +184,11 @@ SM64::AudioSampleFactoryV0::ReadResource(std::shared_ptr<Ship::File> file,
     if (stateSize > 0) {
         bank->loop.state = new int16_t[stateSize];
         reader->Read((char*)bank->loop.state, stateSize * sizeof(int16_t));
+        if (byteSwap) {
+            for (uint32_t k = 0; k < stateSize; k++) {
+                bank->loop.state[k] = (int16_t)__builtin_bswap16((uint16_t)bank->loop.state[k]);
+            }
+        }
     } else {
         bank->loop.state = nullptr;
     }
@@ -185,6 +199,11 @@ SM64::AudioSampleFactoryV0::ReadResource(std::shared_ptr<Ship::File> file,
     uint32_t tableSize = reader->ReadUInt32();
     bank->book.book = new int16_t[tableSize];
     reader->Read((char*)bank->book.book, tableSize * sizeof(int16_t));
+    if (byteSwap) {
+        for (uint32_t k = 0; k < tableSize; k++) {
+            bank->book.book[k] = (int16_t)__builtin_bswap16((uint16_t)bank->book.book[k]);
+        }
+    }
 
     int32_t sampleSize = reader->ReadInt32();
     char* sampleData = new char[ROUND_UP_8(sampleSize)];

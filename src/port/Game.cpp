@@ -45,9 +45,10 @@ extern "C" void bootflush(void) {
     }
 }
 
-// Bring-up toggle: 0 disables audio synthesis + skips audio resource loading (fast
-// init for the gdb stub, to isolate the render path).
-int g_audio_enabled = 0;
+// Audio toggle: 0 disables audio synthesis + skips audio resource loading (fast
+// init for the gdb stub, to isolate the render path). 1 = synthesise and play
+// through the console DSP (asndlib) via the audio bridge.
+int g_audio_enabled = 1;
 
 // BISECT: 1 = skip all GX triangle submission (read by the GX backend). Lets us test
 // whether the frame-1 render hang is in the triangle/GP path vs. elsewhere.

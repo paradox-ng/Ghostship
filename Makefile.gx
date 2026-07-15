@@ -73,7 +73,7 @@ CFLAGS		=	-g -O2 -fno-strict-aliasing -Wall -Wno-incompatible-pointer-types -Wno
 				-Wno-builtin-macro-redefined $(CVAR_DEFS) $(GAME_DEFS) $(MACHDEP) $(INCLUDE)
 CXXFLAGS	=	$(CFLAGS) -std=gnu++20
 LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
-LIBS		:=	$(PLATFORM_LIBS) -lfat -lz -logc -lm
+LIBS		:=	$(PLATFORM_LIBS) -lasnd -lfat -lz -logc -lm
 LIBDIRS		:=	$(PORTLIBS_PATH)/ppc
 
 #---------------------------------------------------------------------------------

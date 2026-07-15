@@ -3,6 +3,21 @@
 #include <bridge/resourcebridge.h>
 #include "ResourceUtil.h"
 
+// ADSR envelope delay/arg are consumed by the audio engine (audio/effects.h) through
+// a byteswap that is a no-op on big-endian and a swap on little-endian, because the
+// values are kept in N64 (big-endian) order. reader->ReadInt16() already returns the
+// correct logical value (the resource loader sets the reader's byte order), so we must
+// re-encode to that same engine convention. The bare BSWAP16 macro in scope here
+// resolves to the UNCONDITIONAL __builtin_bswap16 from the binary-tools endianness
+// header, which double-swaps on big-endian and corrupts every envelope (sustained
+// music notes collapse, so the OST goes silent while short SFX survive). This matches
+// the BSWAP16_BE helper the sequence factory uses for the same reason.
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define ENV_TO_ENGINE(x) (x)
+#else
+#define ENV_TO_ENGINE(x) ((int16_t)__builtin_bswap16((uint16_t)(x)))
+#endif
+
 std::shared_ptr<Ship::IResource>
 SM64::AudioBankFactoryV0::ReadResource(std::shared_ptr<Ship::File> file,
                                        std::shared_ptr<Ship::ResourceInitData> initData) {
@@ -32,8 +47,8 @@ SM64::AudioBankFactoryV0::ReadResource(std::shared_ptr<Ship::File> file,
         if (envelopeSize != 0) {
             instrument->envelope = new AdsrEnvelope[envelopeSize];
             for (size_t j = 0; j < envelopeSize; j++) {
-                instrument->envelope[j].delay = BSWAP16(reader->ReadInt16());
-                instrument->envelope[j].arg = BSWAP16(reader->ReadInt16());
+                instrument->envelope[j].delay = ENV_TO_ENGINE(reader->ReadInt16());
+                instrument->envelope[j].arg = ENV_TO_ENGINE(reader->ReadInt16());
             }
         }
 
@@ -75,8 +90,8 @@ SM64::AudioBankFactoryV0::ReadResource(std::shared_ptr<Ship::File> file,
         if (envelopeSize != 0) {
             drum->envelope = new AdsrEnvelope[envelopeSize];
             for (size_t j = 0; j < envelopeSize; j++) {
-                drum->envelope[j].delay = BSWAP16(reader->ReadInt16());
-                drum->envelope[j].arg = BSWAP16(reader->ReadInt16());
+                drum->envelope[j].delay = ENV_TO_ENGINE(reader->ReadInt16());
+                drum->envelope[j].arg = ENV_TO_ENGINE(reader->ReadInt16());
             }
         }
 
