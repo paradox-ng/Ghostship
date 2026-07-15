@@ -10,12 +10,19 @@ namespace fs = std::filesystem;
 
 extern "C" struct SaveBuffer gSaveBuffer;
 
-const fs::path savesPath(Ship::Context::GetPathRelativeToAppDirectory("saves", "sm64"));
+// Resolve at call time, not static-init time. Context::InitPaths (which sets the base
+// dir, e.g. sd:/Ghostship/) runs during engine startup, AFTER this translation unit's
+// globals are constructed - a global const here would bake in an unresolved relative
+// "saves" path and land the folder outside the game directory (at the SD root). All
+// callers run after startup, so a function always sees the resolved base dir.
+static fs::path SavesPath() {
+    return fs::path(Ship::Context::GetPathRelativeToAppDirectory("saves", "sm64"));
+}
 
 static void Init() {
     // Create saves directory if it doesn't exist
-    if (!fs::exists(savesPath)) {
-        fs::create_directory(savesPath);
+    if (!fs::exists(SavesPath())) {
+        fs::create_directories(SavesPath());
     }
 }
 
@@ -34,7 +41,7 @@ void RestoreSaveFileData(int32_t fileIndex, int32_t srcSlot) {
 }
 
 void SaveFileDoSave(int32_t fileIndex) {
-    std::ofstream file(savesPath / ("save_" + std::to_string(fileIndex) + ".json"), std::ios::out);
+    std::ofstream file(SavesPath() / ("save_" + std::to_string(fileIndex) + ".json"), std::ios::out);
     if (!file.is_open()) {
         return;
     }
@@ -61,7 +68,7 @@ void SaveFileLoadAll(void) {
 
     // Read save files
     for (int32_t fileIndex = 0; fileIndex < NUM_SAVE_FILES; fileIndex++) {
-        fs::path filepath = savesPath / ("save_" + std::to_string(fileIndex) + ".json");
+        fs::path filepath = SavesPath() / ("save_" + std::to_string(fileIndex) + ".json");
         if (!fs::exists(filepath)) {
             continue;
         }
@@ -84,7 +91,7 @@ void SaveFileLoadAll(void) {
     }
 
     // Read global save file
-    fs::path globalpath = savesPath / "global.json";
+    fs::path globalpath = SavesPath() / "global.json";
     if (fs::exists(globalpath)) {
         std::ifstream file(globalpath, std::ios::in);
         if (file.is_open()) {
@@ -97,7 +104,7 @@ void SaveFileLoadAll(void) {
 }
 
 void SaveMainMenuData(void) {
-    std::ofstream file(savesPath / "global.json", std::ios::out);
+    std::ofstream file(SavesPath() / "global.json", std::ios::out);
     if (!file.is_open()) {
         return;
     }
