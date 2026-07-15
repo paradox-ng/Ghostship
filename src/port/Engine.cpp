@@ -1,5 +1,5 @@
 #include "Engine.h"
-#include "platform/lugx_config.h" // g_lugx_config (fps_60 toggle)
+#include "platform/lugx_config.h" // g_lugx_config (frame_interpolation toggle)
 #include "ModAudio.h"
 #include "ui/GhostshipGui.hpp"
 #if !defined(__SWITCH__) && !defined(__WIIU__)
@@ -1193,9 +1193,9 @@ uint32_t GameEngine::GetInterpolationFPS() {
     } else if (CVarGetInteger(CVAR_VSYNC_ENABLED, 1) ||
                !Ship::Context::GetInstance()->GetWindow()->CanDisableVerticalSync()) {
         return std::min<uint32_t>(Ship::Context::GetInstance()->GetWindow()->GetCurrentRefreshRate(),
-                                  CVarGetInteger(CVAR_SETTING("InterpolationFPS"), g_lugx_config.fps_60 ? 60 : 30));
+                                  CVarGetInteger(CVAR_SETTING("InterpolationFPS"), g_lugx_config.frame_interpolation ? 60 : 30));
     }
-    return CVarGetInteger(CVAR_SETTING("InterpolationFPS"), g_lugx_config.fps_60 ? 60 : 30);
+    return CVarGetInteger(CVAR_SETTING("InterpolationFPS"), g_lugx_config.frame_interpolation ? 60 : 30);
 }
 
 // Audio
