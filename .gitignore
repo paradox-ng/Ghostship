@@ -3,6 +3,9 @@
 *.obj
 *.elf
 
+# GameCube/Wii executables (build artifacts)
+*.dol
+
 # Linker output
 *.ilk
 *.exp
