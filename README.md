@@ -1,94 +1,152 @@
-# Ghostship
+# Ghostship on GameCube and Wii
 
-Lead Developers:
-* [Lywx](https://www.github.com/kiritodv)
+This is a fork of [HarbourMasters/Ghostship](https://github.com/HarbourMasters/Ghostship),
+the Super Mario 64 PC port, built to run **natively on the Nintendo GameCube and Wii**.
 
-## Discord
+The game source is not rewritten. Instead of linking
+[libultraship](https://github.com/Kenix3/libultraship), which targets PCs, this fork
+links [libultragx](https://github.com/paradox-ng/libultragx), a reimplementation of
+that runtime for devkitPPC and libogc. The same Fast3D display lists the PC port
+renders through OpenGL are decoded here and driven through the GX fixed-function
+pipeline, and the same `.o2r` asset archive is read off an SD card.
 
-Official Discord: https://discord.com/invite/shipofharkinian
+Upstream's own documentation is preserved unchanged at
+[docs/README-upstream.md](docs/README-upstream.md), and everything it says about the
+desktop builds still applies to them. This file covers the console build only.
 
-If you're having any trouble after reading through this `README`, feel free ask for help in the Ghostship Support text channels. Please keep in mind that we do not condone piracy.
+**This fork ships no copyrighted assets and cannot produce them.** You supply your
+own legally dumped ROM, exactly as upstream requires.
 
-# Quick Start
+## Status
 
-Ghostship does not include any copyrighted assets.  You are required to provide a supported copy of the game.
+**The Wii build is playable start to finish.** It boots, renders the whole game,
+plays music and sound effects, reads and writes saves, and holds its native 30 fps.
 
-### 1. Verify your ROM dump
-The supported ROMs are US and JP versions. You can verify you have dumped a supported copy of the game by using the SHA-1 File Checksum Online at https://www.romhacking.net/hash/. 
+**The GameCube build compiles and links but has not been proven on hardware.** The
+GameCube has no built-in SD slot, so reaching the asset archive needs an SD Gecko or
+an SD2SP2 adapter, and that path is untested. GameCube is the design target, since
+its 24 MB of RAM is the budget everything was built to fit, but the Wii is what
+currently runs.
 
-* The SHA-1 hash for a US ROM is 9bef1128717f958171a4afac3ed78ee2bb4e86ce.
-* The SHA-1 hash for a JP ROM is 8a20a5c83d6ceb0f0506cfc9fa20d8f438cafe51.
+All testing so far has been under the Dolphin emulator. Dolphin does not reproduce
+the real graphics hardware exactly, so real console testing is still outstanding.
 
-### 2. Verify your ROM is in .z64 format
-Your ROM needs to be in .z64 format. If it's in .n64 format, use the following to convert it to a .z64: https://hack64.net/tools/swapper.php
+## What you need
 
-### 2. Download Ghostship from [Releases](https://github.com/HarbourMasters/Ghostship/releases)
+- A Wii (or a GameCube, once that build is proven), able to run homebrew
+- An SD card
+- Your own Super Mario 64 ROM, US or JP, in `.z64` format
+- A PC, once, to turn that ROM into an asset archive
 
-### 3. Generating the OTR from the ROM and Play!
-#### Windows
-* Extract every file from the zip into a folder of your choosing.
-* Run Ghostship.exe and select your US or JP ROM.
+## Getting the asset archive
 
-#### Linux
-* Extract every file from the zip into a folder of your choosing.
-* Execute Ghostship.appimage. You may have to chmod +x the appimage via terminal.
+The console build cannot extract assets from a ROM itself; that step needs the
+desktop build. Do it once on a PC:
 
-#### MacOS
-* Extract every file from the zip into a folder of your choosing.
-* Run Ghostship and select your US or JP ROM.
+1. Download an upstream [Ghostship release](https://github.com/HarbourMasters/Ghostship/releases)
+   for your operating system.
+2. Run it and select your ROM. It writes an `sm64.o2r` next to the executable.
+3. Copy that `sm64.o2r` to your SD card as described below.
 
-#### Nintendo Switch
-* Run one of the PC releases to generate an `sm64.o2r` file. After launching the game on PC, you will be able to find these files in the same directory as `Ghostship.exe` or `Ghostship.appimage`.
-* Copy the files to your sd card
+Upstream's README lists the SHA-1 hashes for the supported ROMs if you want to
+verify your dump first.
 
-# Configuration
+## SD card layout
 
-### Default keyboard configuration
-| N64 | A | B | Z | Start | Analog stick | C buttons | D-Pad |
-| - | - | - | - | - | - | - | - |
-| Keyboard | X | C | Z | Space | WASD | Arrow keys | TFGH |
+The game looks for a `Ghostship` folder at the root of the card:
 
-### Other shortcuts
-| Keys | Action |
-| - | - |
-| Esc | Toggle menu |
-| Ctrl+R | Reset (inside levels) |
-| F11 | Fullscreen |
-| Tab | Toggle Alternate assets |
+```
+sd:/
+  Ghostship/
+    sm64.o2r              your asset archive
+    config.ini            created on first boot
+    saves/                created when you first save
+```
 
-### Graphics Backends
-Currently, there are three rendering APIs supported: DirectX11 (Windows), OpenGL (all platforms), and Metal (macOS). You can change which API to use in the `Settings` menu of the menubar, which requires a restart.  If you're having an issue with crashing, you can change the API in the `Ghostship.cfg.json` file by finding the line `"Backend":{`... and changing the `id` value to `3` and set the `Name` to `OpenGL`. `DirectX 11` with id `2` is the default on Windows. `Metal` with id `4` is the default on macOS.
+The `.dol` itself can live wherever your loader keeps it; only the data folder has a
+fixed location. The folder name comes from the game, so renaming the `.dol` does not
+change where it looks.
 
-# Custom Assets
-Custom assets are packed in `.o2r` or `.otr` files. To use custom assets, place them in the `mods` folder.
+## Controls
 
-If you're interested in creating and/or packing your own custom asset `.o2r`/`.otr` files, check out the following tools:
-* [**retro - OTR and O2R generator**](https://github.com/HarbourMasters64/retro)
-* [**fast64 - Blender plugin**](https://github.com/HarbourMasters/fast64)
+Three controllers work, and they are read together, so you can put one down and pick
+another up without telling the game.
 
-# Development
-### Building
+| N64 | GameCube pad | Wii Remote + Nunchuk | Classic Controller |
+|---|---|---|---|
+| Analog stick | Analog stick | Nunchuk stick | Left stick |
+| A | A | A | a |
+| B | B | B | b |
+| Z | Z | Nunchuk Z | ZL or ZR |
+| Start | Start | + | + |
+| C buttons | C-stick | D-pad | Right stick |
+| L | L | 1 | L |
+| R | R | Nunchuk C | R |
+| D-pad | D-pad | not mapped | D-pad |
 
-If you want to manually compile Ghostship, please consult the [building instructions](https://github.com/HarbourMasters/Ghostship/blob/develop/docs/building.md).
+A Wii Remote on its own is not supported: it has no analog stick, which the game
+needs, and too few reachable buttons.
 
-### Playtesting
-If you want to playtest a continuous integration build, you can find them at the links below. Keep in mind that these are for playtesting only, and you will likely encounter bugs and possibly crashes. 
+## Configuration
 
-* [Windows](https://nightly.link/HarbourMasters/Ghostship/workflows/main/develop/Ghostship-windows.zip)
-* [macOS](https://nightly.link/HarbourMasters/Ghostship/workflows/main/develop/Ghostship-mac.zip)
-* [Linux](https://nightly.link/HarbourMasters/Ghostship/workflows/main/develop/Ghostship-linux.zip)
+A `config.ini` is created in the game folder on first boot, with comments. An
+existing file is never overwritten, so your settings survive updates.
 
-<a href="https://github.com/Kenix3/libultraship/">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/poweredbylus.darkmode.png">
-    <img alt="Powered by libultraship" src="./docs/poweredbylus.lightmode.png">
-  </picture>
-</a>
+| Key | Values | Default | Effect |
+|---|---|---|---|
+| `aspect_ratio` | `auto`, `4:3`, `16:9` | `auto` | `auto` follows the Wii's system setting, and is 4:3 on GameCube. `16:9` widens the field of view for a widescreen TV rather than stretching the picture |
+| `fps_counter` | `true`, `false` | `false` | On-screen frame rate, top right |
+| `frame_interpolation` | `true`, `false` | `false` | Renders in-between frames for 60 fps motion. The game itself still runs at 30 fps, and this costs noticeably more work per second |
+| `antialiasing` | `true`, `false` | `false` | The console's hardware edge antialiasing, similar in spirit to the N64's. It smooths edges at the cost of vertical detail and some colour banding. Worth trying both |
+| `debug_profiler` | `true`, `false` | `false` | Development diagnostic |
 
-# Special Thanks:
+## Known limitations
 
-* [Kenix3](https://github.com/Kenix3) : for helping with the Engine development that were brought into other ports.
-* [HM64 Team](https://github.com/harbourMasters) : for creating Libultraship and helping with various issues.
-* [garrettjoecox](https://github.com/garrettjoecox) : for contributing with fixes to this port.
-* [inspectredc](https://github.com/inspectredc) : for contributing to the extraction of the game's assets.
-* [Malkierian](https://github.com/Malkierian) : for contributing to the extraction of the game's assets.
+- GameCube is unproven on hardware, as above.
+- Effects that read back the framebuffer are inert, because render-to-texture is not
+  implemented. Nothing in this game is known to depend on it.
+- Antialiasing has not been judged on real hardware. Emulators do not reproduce the
+  console's copy filter faithfully, so whether it is worth enabling is an open
+  question rather than a recommendation.
+- The in-game menu from the desktop build is not present. It is built on ImGui, which
+  costs memory the GameCube does not have, so settings live in `config.ini` instead.
+- Mods and the scripting runtime are not available on console.
+
+## Building
+
+The toolchain runs in Docker, so nothing is installed on your system:
+
+```sh
+git clone --recursive https://github.com/paradox-ng/Ghostship -b gx-port
+cd Ghostship
+docker run --rm -v "$PWD":/project -w /project -u "$(id -u):$(id -g)" \
+    devkitpro/devkitppc:latest make -f Makefile.gx PLATFORM=wii -j$(nproc)
+```
+
+That produces `ghostship-wii.dol`. Use `PLATFORM=gamecube` for
+`ghostship-gamecube.dol`. The `--recursive` clone matters: libultragx is a submodule
+and has submodules of its own, and without them the build fails on missing headers.
+
+The desktop build is unaffected by this fork and still uses upstream's CMake; see
+[docs/building.md](docs/building.md).
+
+## Credits
+
+This fork is only a port. The game, the decompilation it rests on, and the PC port
+being ported are all other people's work.
+
+- [HarbourMasters/Ghostship](https://github.com/HarbourMasters/Ghostship) and
+  [Lywx](https://www.github.com/kiritodv), for the Super Mario 64 PC port this forks.
+  Their credits are in [docs/README-upstream.md](docs/README-upstream.md) and apply
+  in full.
+- [Kenix3](https://github.com/Kenix3) and the Harbour Masters contributors, for
+  libultraship, the runtime libultragx reimplements.
+- [sm64](https://github.com/n64decomp/sm64), the Super Mario 64 decompilation.
+- [mkst](https://github.com/mkst/sm64-port)'s Wii branch of sm64-port, the reference
+  for how Fast3D geometry reaches GX on this hardware.
+- [devkitPro](https://devkitpro.org/), for devkitPPC and libogc.
+
+## License
+
+This fork keeps upstream Ghostship's license; see [LICENSE.md](LICENSE.md).
+libultragx, the runtime it links, is separately licensed under GPL-3.0.
