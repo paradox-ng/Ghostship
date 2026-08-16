@@ -53,19 +53,28 @@ verify your dump first.
 
 ## SD card layout
 
-The game looks for a `Ghostship` folder at the root of the card:
+The game looks for a `Ghostship` folder at the root of the card. The usual Wii
+arrangement, which the Homebrew Channel picks up automatically:
 
 ```
 sd:/
+  apps/
+    ghostship/
+      boot.dol            the build, renamed
+      meta.xml            optional: name and description for the channel
+      icon.png            optional: 128x48
   Ghostship/
-    sm64.o2r              your asset archive
+    sm64.o2r              your asset archive, which you supply
     config.ini            created on first boot
     saves/                created when you first save
 ```
 
-The `.dol` itself can live wherever your loader keeps it; only the data folder has a
-fixed location. The folder name comes from the game, so renaming the `.dol` does not
-change where it looks.
+Only the `Ghostship` folder has a fixed location. The executable can live anywhere
+your loader looks, and renaming it to `boot.dol` is safe: the data folder is named
+after the game itself, not after the file, so the game still finds it.
+
+The `saves` folder is created for you. The `Ghostship` folder is not, so make it
+yourself when you copy your archive in.
 
 ## Controls
 
