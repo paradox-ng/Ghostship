@@ -1,4 +1,4 @@
-# Ghostship on GameCube and Wii
+# Ghostship for GC/Wii
 
 This is a fork of [HarbourMasters/Ghostship](https://github.com/HarbourMasters/Ghostship),
 the Super Mario 64 PC port, built to run **natively on the Nintendo GameCube and Wii**.
